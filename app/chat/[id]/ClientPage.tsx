@@ -65,18 +65,17 @@ const normalizeImageSrc = (src?: string): string | undefined => {
   }
 };
 
-// Minimal custom UserMessage that renders attachments (image on top) and text bubble below
-const CustomAttachment = ({ attachment }: any) => {
+// 将附件图片置于文本气泡上方
+const CustomAttachment = ({ attachment }: { attachment: any }) => {
   try {
     if (attachment?.type === "image") {
-      // 1) prefer in-state file (pre-send)
-      // 2) then prefer top-level .url (our adapter设置)
-      // 3) then fallback to content[].image (字符串/对象)
-      const full = (attachment || {}) as any;
-      const imagePart = attachment?.content?.find((c: any) => c?.type === "image")?.image;
-      const topLevelUrl: string | undefined = full.url;
-      const raw = topLevelUrl || (typeof imagePart === "string" ? imagePart : (imagePart?.url || imagePart?.thumb_url));
-      const src = normalizeImageSrc(raw);
+      // 优先使用上传返回的 url，其次查找 content 中的 image 信息
+      const raw =
+        (attachment as any)?.url ||
+        (attachment?.content?.find((c: any) => c?.type === "image")?.image ?? undefined);
+      const src = normalizeImageSrc(
+        typeof raw === "string" ? raw : raw?.url || raw?.thumb_url,
+      );
       if (src) {
         return (
           <div className="mb-2">
@@ -85,7 +84,15 @@ const CustomAttachment = ({ attachment }: any) => {
               src={src}
               alt={attachment?.name || "Image"}
               className="rounded-lg border border-border cursor-pointer hover:opacity-80 transition-opacity"
-              style={{ minWidth: "250px", minHeight: "150px", maxWidth: "400px", maxHeight: "300px", width: "auto", height: "auto", objectFit: "contain" }}
+              style={{
+                minWidth: "250px",
+                minHeight: "150px",
+                maxWidth: "400px",
+                maxHeight: "300px",
+                width: "auto",
+                height: "auto",
+                objectFit: "contain",
+              }}
               onClick={() => window.open(src, "_blank")}
             />
           </div>
@@ -100,46 +107,19 @@ const CustomAttachment = ({ attachment }: any) => {
   );
 };
 
-const CustomUserMessage = () => {
-  const ImageOnly = {
-    Text: () => null,
-    Image: ({ part }: any) => {
-      const raw = typeof part?.image === 'string' ? part.image : (part?.image?.url || part?.image?.thumb_url);
-      const src = normalizeImageSrc(raw);
-      if (!src) return null;
-      return (
-        <div className="mb-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt="Image"
-            className="rounded-lg border border-border cursor-pointer hover:opacity-80 transition-opacity"
-            style={{ minWidth: "250px", minHeight: "150px", maxWidth: "400px", maxHeight: "300px", width: "auto", height: "auto", objectFit: "contain" }}
-            onClick={() => window.open(src, "_blank")}
-          />
-        </div>
-      );
-    },
-  } as any;
-
-  const TextOnly = {
-    Image: () => null,
-    Text: MarkdownText as any,
-  } as any;
-
+// 自定义的用户消息：图片附件在上，文本内容在下
+function CustomUserMessage() {
   return (
     <MessagePrimitive.Root>
-      {/* 1) 附件气泡：发送前/刚发送立即显示 */}
       <MessagePrimitive.Attachments components={{ Attachment: CustomAttachment }} />
-      {/* 2) 内容里的图片：附件清空后仍能展示 */}
-      <MessagePrimitive.Content components={ImageOnly} />
-      {/* 3) 文本在下方 */}
       <div className="bg-muted rounded-lg px-4 py-2">
-        <MessagePrimitive.Content components={TextOnly} />
+        <MessagePrimitive.Content
+          components={{ Image: () => null, Text: MarkdownText as any }}
+        />
       </div>
     </MessagePrimitive.Root>
   );
-};
+}
 
 function ContentDisclaimer() {
   return (
@@ -191,8 +171,10 @@ export default function ClientPage({ params, initialHasHistory }: { params: Prom
   }, [messages]);
 
   // 恢复观察者包装器，确保props正确传递
-  const withObserver = (Component: any) => (props: any) => {
-    return <Component {...props} />;
+  const withObserver = (Component: any) => {
+    const Wrapped = (props: any) => <Component {...props} />;
+    Wrapped.displayName = Component.displayName || Component.name || "Observed";
+    return Wrapped;
   };
 
   const ObservedThreadWelcome = withObserver(AUIThreadWelcome);
