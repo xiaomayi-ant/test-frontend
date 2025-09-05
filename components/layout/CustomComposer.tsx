@@ -15,7 +15,10 @@ export function CustomComposer() {
 
       {/* leading: 附件按钮 */}
       <div className="[grid-area:leading] relative">
-        <UIComposer.AddAttachment className="rounded-full w-8 h-8 text-foreground/80 hover:text-foreground">
+        <UIComposer.AddAttachment
+          accept="image/*"
+          className="rounded-full w-8 h-8 text-foreground/80 hover:text-foreground"
+        >
           <Plus className="h-4 w-4" />
         </UIComposer.AddAttachment>
       </div>
